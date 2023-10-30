@@ -1,0 +1,4 @@
+module Private {
+    header "honsole-private.h"
+    export *
+}

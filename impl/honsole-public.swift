@@ -36,6 +36,7 @@ func ABI_honsole_v3_bin_put ( _ bin: Data ) throws {
 }
 
 func ABI_honsole_v3_bin_eat ( _ len: Int ) throws -> Data {
+    guard     len != 0                         else { return Data() }
     guard let bin = try I.read(upToCount: len) else { throw EoF }
     guard     bin.count                == len  else { throw EoF }
     return    bin

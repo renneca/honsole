@@ -1,0 +1,24 @@
+---
+honsole: protocol
+version: v3
+unicode: UTF-8
+machine:
+  REGISTER-BITS: 64
+  BYTE-ORDER: little
+strings:
+  v1: swift.String
+  v3: swift.Data
+MODE:
+  default:
+    v1: txt
+    v3: bin
+JSON: 5
+ABI:
+  avaliable:
+    binary: always
+    source: maybe
+API:
+  avaliable:
+    binary: maybe
+    source: always
+...

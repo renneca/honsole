@@ -31,6 +31,10 @@ func HonsoleClientV3 ( _ op: Data, _ data: Data ) async throws {
     switch op {
     case Data("v3/icon".utf8):
         try await H5icon(data)
+    case Data("v3/blob".utf8):
+        let key = try getb()
+        let   _ = #ensure( BLOB[key] == nil )
+        BLOB[key] = data
     default:
         throw Err(src: "op == unknown")
     }

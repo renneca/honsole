@@ -6,6 +6,7 @@ let WebKitVer = Bundle(for: WKWebView.self).infoDictionary?["CFBundleVersion"] a
 var H5UX = WebKitDelegate()
 var H5FW:  WKContentRuleList!
 var VIEW:  WKWebView!
+var BLOB: [Data:Data] = [:]
 
 func JSON ( _ data: Data ) -> Any? {
     return try? JSONSerialization.jsonObject(with: data, options: .json5Allowed)
@@ -13,7 +14,8 @@ func JSON ( _ data: Data ) -> Any? {
 
 @MainActor
 func JS ( _ op: String, _ od: Any ) async {
-    VIEW.callAsyncJavaScript("honsole[op](op,od)", arguments: [ "op": op, "od": od ], in: nil, in: .page)
+    let _ = try? await 
+    VIEW.callAsyncJavaScript("honsole[op](op,od)", arguments: [ "op": op, "od": od ], contentWorld: .page)
 }
 
 @MainActor
@@ -80,6 +82,7 @@ struct WebKitView: NSViewRepresentable {
         ctrl.addUserScript(boot)
         conf.userContentController = ctrl
         conf.websiteDataStore      = data
+        conf.setURLSchemeHandler(H5UX, forURLScheme: HONSOLE)
         conf.preferences.setValue(true, forKey: "developerExtrasEnabled")
         let view = HonsoleWKWebView(frame: .zero, configuration: conf)
         view.uiDelegate         = H5UX
@@ -111,7 +114,7 @@ struct H5MainView: View {
     }
 }
 
-class WebKitDelegate: NSObject, WKUIDelegate, WKNavigationDelegate, WKScriptMessageHandlerWithReply {
+class WebKitDelegate: NSObject, WKUIDelegate, WKNavigationDelegate, WKScriptMessageHandlerWithReply, WKURLSchemeHandler {
     @MainActor
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) async -> (Any?, String?) {
         do {
@@ -124,6 +127,29 @@ class WebKitDelegate: NSObject, WKUIDelegate, WKNavigationDelegate, WKScriptMess
     }
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction) async -> WKNavigationActionPolicy {
         return navigationAction.request.url?.absoluteString == H5ROOT ? .allow : .cancel
+    }
+    func webView(_ webView: WKWebView, start urlSchemeTask: WKURLSchemeTask) {
+        do {
+            let pfx = "honsole:blob:"
+            let url = #ensure(urlSchemeTask.request.url)
+            let   _ = #ensure(url.absoluteString.hasPrefix(pfx))
+            let key =  String(url.absoluteString.dropFirst(pfx.count))
+            if let bin = BLOB[Data(key.utf8)] {
+                let res = URLResponse(url: url, mimeType: "application/octet-stream", expectedContentLength: bin.count, textEncodingName: nil)
+                urlSchemeTask.didReceive(res)
+                urlSchemeTask.didReceive(bin)
+                urlSchemeTask.didFinish()
+            } else {
+                let res = #ensure( HTTPURLResponse(url: url, statusCode: 404, httpVersion: nil, headerFields: nil) )
+                urlSchemeTask.didReceive(res as URLResponse)
+                urlSchemeTask.didFinish()
+            }
+        } catch {
+            urlSchemeTask.didFailWithError(error)
+        }
+    }
+    func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {
+        return
     }
 }
 
@@ -142,5 +168,8 @@ window.webkit.messageHandlers.honsole.postMessage(["H5init"])
 """
 let FIREWALL =
 """
-[{ "trigger": { "url-filter": ".*" }, "action": { "type": "block" } }]
+[
+    { "trigger": { "url-filter": ".*" },        "action": { "type": "block" } },
+    { "trigger": { "url-filter": "^honsole:" }, "action": { "type": "ignore-previous-rules" } }
+]
 """
